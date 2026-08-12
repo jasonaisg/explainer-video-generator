@@ -1,0 +1,18 @@
+{
+  "duration": 10.0,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 4.0,
+      "mode": "V1_PRESENTER_FULL",
+      "presenter_visible": true
+    },
+    {
+      "start": 4.0,
+      "end": 10.0,
+      "mode": "V3_ANIMATION_WITH_PIP",
+      "presenter_visible": true,
+      "pip": {"anchor": "top-right", "shape": "circle"}
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "科普讲解视频生成器"
+  short_description: "用多 Session 分阶段统筹口播科普动画视频全流程"
+  default_prompt: "使用 $explainer-video-generator 从源媒体开始，分阶段统筹并制作我的口播科普讲解成片。"
