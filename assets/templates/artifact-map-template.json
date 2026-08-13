@@ -1,0 +1,13 @@
+{
+  "03_content_plan/master-timeline.json": {
+    "artifact_id": "timeline.master",
+    "version": "v1",
+    "type": "DATA",
+    "depends_on": [
+      {
+        "artifact_id": "media.sync-definition",
+        "propagation": "REBUILD"
+      }
+    ]
+  }
+}

@@ -35,6 +35,10 @@
 │   ├── session-registry.json      # Session 注册表
 │   ├── decision-log.md            # 决策日志
 │   ├── issue-register.md          # 问题登记册
+│   ├── artifact-dependency-graph.json # 产物级依赖图
+│   ├── change-control-state.json  # 变更编号与控制状态
+│   ├── change-requests/           # CR-xxxx 变更请求与影响分析
+│   ├── rework-orders/             # RW-xxxx-xx 选择性返工工单
 │   └── approvals/                 # 审批记录
 ├── 01_inputs/                     # 原始输入或引用
 │   ├── video/                     # 口播视频
@@ -62,6 +66,8 @@
 ```
 
 大型媒体可以保留在项目外部。记录绝对路径或项目相对引用及 SHA-256；不得只为满足目录形式而复制文件。
+
+每项可被下游消费的冻结产物必须在 `artifact-dependency-graph.json` 中使用稳定 ID 登记直接依赖、版本和 SHA-256。已审批产物的修改必须通过变更请求和选择性返工工单，完整规则见[变更请求、产物依赖图与选择性返工规范](change-control.md)。
 
 ## 信息权威顺序
 

@@ -122,7 +122,8 @@ def init_project(args: argparse.Namespace) -> None:
     if (root / "00_control" / "project-state.json").exists():
         raise SystemExit(f"项目已经初始化：{root}")
     dirs = [
-        "00_control/approvals", "01_inputs/video", "01_inputs/audio", "01_inputs/script",
+        "00_control/approvals", "00_control/change-requests", "00_control/rework-orders",
+        "01_inputs/video", "01_inputs/audio", "01_inputs/script",
         "01_inputs/config", "01_inputs/fact-sources", "01_inputs/assets", "01_inputs/music",
         "01_inputs/sfx", "02_media_analysis", "03_content_plan", "04_design", "05_reviews",
         "06_hyperframes/src", "06_hyperframes/compositions", "06_hyperframes/media",
@@ -135,7 +136,7 @@ def init_project(args: argparse.Namespace) -> None:
     stamp = now()
     slug = slugify(args.name)
     config = {
-        "schema_version": "1.1", "project_name": args.name, "status": "DRAFT",
+        "schema_version": "1.2", "project_name": args.name, "status": "DRAFT",
         "source": {"video_mp4": "", "audio_mp3": "", "script": "", "original_config": "",
                    "picture_locked": True, "canonical_audio": "audio_mp3", "language": "zh"},
         "video": {"width": None, "height": None, "fps": None, "sync_tolerance_seconds": 0.25},
@@ -147,14 +148,15 @@ def init_project(args: argparse.Namespace) -> None:
         "delivery": {"captioned_master": True, "clean_master": False},
     }
     state = {
-        "schema_version": "1.1", "project_id": slug, "project_name": args.name,
+        "schema_version": "1.2", "project_id": slug, "project_name": args.name,
         "project_status": "ACTIVE", "current_phase": "P00", "version": 1,
         "created_at": stamp, "updated_at": stamp,
+        "active_change_requests": [], "rework_orders": {},
         "phase_status": {p: ("READY" if p == "P00" else "NOT_STARTED") for p, _ in PHASES},
     }
     pm_id = args.pm_session_id or "UNASSIGNED"
     registry = {
-        "schema_version": "1.1", "updated_at": stamp,
+        "schema_version": "1.2", "updated_at": stamp,
         "pm": {"role": "PM", "session_name": f"EVG-PM-{slug}", "session_id": pm_id,
                "platform": args.platform, "status": "ACTIVE" if pm_id != "UNASSIGNED" else "PLANNED",
                "created_at": stamp, "last_seen_at": stamp},
@@ -167,6 +169,12 @@ def init_project(args: argparse.Namespace) -> None:
     }
     state_path, registry_path, config_path = root_paths(root)
     write_json(config_path, config); write_json(state_path, state); write_json(registry_path, registry)
+    write_json(root / "00_control" / "artifact-dependency-graph.json", {
+        "schema_version": "1.0", "revision": 0, "updated_at": stamp, "nodes": {},
+    })
+    write_json(root / "00_control" / "change-control-state.json", {
+        "schema_version": "1.0", "next_change_request": 1, "updated_at": stamp,
+    })
     for filename, title in (("decision-log.md", "项目决策日志"), ("issue-register.md", "项目问题登记册")):
         (root / "00_control" / filename).write_text(f"# {title}\n", encoding="utf-8")
     for phase, name in PHASES:

@@ -12,6 +12,8 @@ from pathlib import Path
 PHASES = [f"P{i:02d}" for i in range(15)]
 USER_GATES = {"P00", "P04", "P05", "P07", "P08", "P10", "P14"}
 VALID_PHASE_STATES = {"NOT_STARTED", "READY", "IN_PROGRESS", "SELF_CHECK", "USER_REVIEW", "SUBMISSION_AUTHORIZED", "SUBMITTED", "REVISION_REQUIRED", "ACCEPTED", "STALE", "BLOCKED"}
+VALID_ARTIFACT_STATES = {"VALID", "REWORK_REQUIRED", "VERIFY_REQUIRED", "PENDING_REVIEW", "RETIRED"}
+VALID_ORDER_STATES = {"BLOCKED", "READY", "IN_PROGRESS", "WAITING_USER", "SUBMISSION_AUTHORIZED", "SUBMITTED", "ACCEPTED", "CANCELLED"}
 FILES = ("task-packet.md", "stage-result.json", "deliverables-manifest.json", "handoff.md", "open-issues.md", "approval-record.md")
 
 
@@ -33,6 +35,51 @@ def schema_at_least(value: object, major: int, minor: int) -> bool:
         return (int(parts[0]), int(parts[1])) >= (major, minor)
     except (ValueError, IndexError):
         return False
+
+
+def validate_change_control(root: Path, state: dict, errors: list[str], warnings: list[str]) -> None:
+    control = root / "00_control"; graph_path = control / "artifact-dependency-graph.json"
+    if not graph_path.is_file():
+        if schema_at_least(state.get("schema_version"), 1, 2): errors.append("1.2 项目缺少 artifact-dependency-graph.json")
+        else: warnings.append("尚未启用 1.2 产物依赖图；首次变更前运行 change_control.py bootstrap")
+        return
+    graph = load(graph_path, errors); nodes = graph.get("nodes", {})
+    if not isinstance(nodes, dict): errors.append("artifact-dependency-graph.nodes 必须为对象"); return
+    visiting: set[str] = set(); visited: set[str] = set()
+    def visit(node_id: str) -> None:
+        if node_id in visiting: errors.append(f"产物依赖图存在环：{node_id}"); return
+        if node_id in visited: return
+        visiting.add(node_id)
+        node = nodes.get(node_id, {})
+        if node.get("artifact_id") != node_id: errors.append(f"产物节点 ID 不一致：{node_id}")
+        if node.get("producer_phase") not in PHASES: errors.append(f"{node_id} producer_phase 非法")
+        if node.get("status") not in VALID_ARTIFACT_STATES: errors.append(f"{node_id} 状态非法：{node.get('status')}")
+        for dep in node.get("depends_on", []):
+            other = dep.get("artifact_id"); mode = dep.get("propagation")
+            if other not in nodes: errors.append(f"{node_id} 引用了不存在的依赖：{other}")
+            elif other not in visiting: visit(other)
+            else: errors.append(f"产物依赖图存在环：{node_id} -> {other}")
+            if mode not in {"REBUILD", "VERIFY"}: errors.append(f"{node_id} 传播模式非法：{mode}")
+        path_value = node.get("path")
+        if path_value and node.get("status") in {"VALID", "PENDING_REVIEW"}:
+            target = Path(path_value)
+            if not target.is_absolute(): target = root / target
+            if not target.is_file(): errors.append(f"有效产物文件不存在：{node_id} -> {path_value}")
+            elif node.get("sha256") and sha256(target) != str(node["sha256"]).lower(): errors.append(f"有效产物哈希漂移：{node_id}")
+        visiting.discard(node_id); visited.add(node_id)
+    for node_id in nodes: visit(node_id)
+    for cr_id in state.get("active_change_requests", []):
+        path = control / "change-requests" / cr_id / "change-request.json"
+        if not path.is_file(): errors.append(f"活动变更请求不存在：{cr_id}")
+        elif load(path, errors).get("status") in {"CLOSED", "REJECTED"}: errors.append(f"活动变更请求状态矛盾：{cr_id}")
+    for order_id, summary in state.get("rework_orders", {}).items():
+        path = control / "rework-orders" / order_id / "work-order.json"
+        if not path.is_file(): errors.append(f"返工工单不存在：{order_id}"); continue
+        order = load(path, errors)
+        if order.get("status") not in VALID_ORDER_STATES: errors.append(f"{order_id} 状态非法：{order.get('status')}")
+        if order.get("status") != summary.get("status"): errors.append(f"{order_id} 与 project-state 状态不一致")
+        for artifact_id in order.get("rebuild_artifacts", []) + order.get("verify_artifacts", []):
+            if artifact_id not in nodes: errors.append(f"{order_id} 引用了不存在的产物：{artifact_id}")
 
 
 def validate(root: Path) -> tuple[list[str], list[str]]:
@@ -93,7 +140,8 @@ def validate(root: Path) -> tuple[list[str], list[str]]:
     for key in ("video_mp4", "audio_mp3", "script", "original_config"):
         if not config.get("source", {}).get(key): warnings.append(f"尚未填写 source.{key}")
     current = state.get("current_phase")
-    if state.get("project_status") != "COMPLETE" and current not in PHASES: errors.append("活动项目的 current_phase 非法")
+    if state.get("project_status") not in {"COMPLETE", "CHANGE_IN_PROGRESS"} and current not in PHASES: errors.append("活动项目的 current_phase 非法")
+    validate_change_control(root, state, errors, warnings)
     return errors, warnings
 
 
