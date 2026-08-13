@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.0",
+  "master_timeline_ref": "03_content_plan/master-timeline.json",
+  "motion_timing_ref": "04_design/motion-timing.json",
+  "design_ref": "04_design/DESIGN.md",
+  "scenes": [
+    {
+      "scene_id": "A01",
+      "manifest": "06_hyperframes/src/scenes/A01/scene-manifest.json"
+    }
+  ]
+}

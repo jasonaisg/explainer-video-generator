@@ -56,6 +56,7 @@
 ├── 05_reviews/                    # 审查报告
 ├── 06_hyperframes/                # HyperFrames 工程
 │   ├── src/
+│   │   └── scenes/               # Axx 独立源模块、manifest 与模块索引
 │   ├── compositions/
 │   ├── media/
 │   └── data/

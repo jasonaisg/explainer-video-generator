@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "timeline_ref": "03_content_plan/master-timeline.json",
+  "coverage": {
+    "start_seconds": 0.0,
+    "end_seconds": 0.0,
+    "source_segment_ids": ["S001"],
+    "uncovered_segment_ids": []
+  },
+  "candidates": [
+    {
+      "id": "C001",
+      "start_seconds": 0.0,
+      "end_seconds": 0.0,
+      "transcript_ref": "",
+      "timeline_segment_ids": ["S001"],
+      "trigger_time_seconds": 0.0,
+      "semantic_complete_time_seconds": 0.0,
+      "available_duration_seconds": 0.0,
+      "timing_feasibility": "PRESENTER_ONLY",
+      "timing_evidence": "",
+      "first_principles": {
+        "cognitive_goal": "",
+        "cognitive_obstacle": "",
+        "visual_advantage": false,
+        "visual_advantage_reason": "",
+        "minimal_structure": "",
+        "memory_result": ""
+      },
+      "information_type": "",
+      "preferred_visual_structure": "",
+      "non_preferred_structure": "",
+      "scores": {
+        "comprehension_gain": {"value": 0, "evidence": ""},
+        "memory_gain": {"value": 0, "evidence": ""},
+        "information_density": {"value": 0, "evidence": ""},
+        "misreading_risk": {"value": 0, "evidence": ""},
+        "production_value": {"value": 0, "evidence": ""}
+      },
+      "total_score": 0,
+      "threshold_recommendation": "PRESENTER_ONLY",
+      "screen_copy": {
+        "locked_full_fact": "",
+        "compressed_text": "",
+        "preserved_qualifiers": []
+      },
+      "agent_recommendation": "PRESENTER_ONLY",
+      "agent_recommendation_reason": "",
+      "final_disposition": "PENDING",
+      "presenter_mode": "V1_PRESENTER_FULL",
+      "layout_constraints": "",
+      "adjacency": {
+        "previous_presenter_state": "START",
+        "next_presenter_state": "END",
+        "transition_in_intent": "",
+        "transition_out_intent": ""
+      },
+      "overlap_tracks": ["presenter"],
+      "not_selected_reason": "",
+      "user_override": false,
+      "user_decision_quote": "",
+      "approval_ref": ""
+    }
+  ]
+}

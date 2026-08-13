@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "scene_id": "A01",
+  "status": "PLANNED",
+  "candidate_ids": ["C001"],
+  "timeline_segment_ids": ["S001"],
+  "motion_timing_ref": "04_design/motion-timing.json#A01",
+  "absolute_timing": {
+    "start_seconds": 0.0,
+    "end_seconds": 0.0,
+    "duration_seconds": 0.0
+  },
+  "local_timing": {
+    "zero_seconds": 0.0,
+    "duration_seconds": 0.0
+  },
+  "presenter": {
+    "previous_state": "START",
+    "mode": "V1_PRESENTER_FULL",
+    "next_state": "END"
+  },
+  "boundary": {
+    "previous_scene_id": "START",
+    "next_scene_id": "END",
+    "transition_in": "",
+    "transition_out": ""
+  },
+  "source": {
+    "entrypoint": "06_hyperframes/src/scenes/A01/scene.js",
+    "data_file": "06_hyperframes/src/scenes/A01/data.json",
+    "isolated_composition_id": "A01-preview",
+    "shared_dependencies": []
+  },
+  "preview": {
+    "checkpoints": ["entry", "information_complete", "handoff"],
+    "output_directory": "07_previews/keyframes/A01"
+  },
+  "output": {
+    "composition_mode": "INTEGRATED_HYPERFRAMES_SCENE",
+    "optional_independent_asset": false,
+    "independent_asset_approval_ref": ""
+  },
+  "approval_ref": ""
+}

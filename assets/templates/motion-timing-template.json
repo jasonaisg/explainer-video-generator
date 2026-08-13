@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "timeline_ref": "03_content_plan/master-timeline.json",
+  "candidate_matrix_ref": "04_design/animation-candidate-matrix.json",
+  "scenes": [
+    {
+      "scene_id": "A01",
+      "candidate_ids": ["C001"],
+      "start_seconds": 0.0,
+      "end_seconds": 0.0,
+      "trigger_time_seconds": 0.0,
+      "semantic_complete_time_seconds": 0.0,
+      "available_duration_seconds": 0.0,
+      "action_budget_seconds": {
+        "entry": 0.0,
+        "information_progression": 0.0,
+        "readable_hold": 0.0,
+        "exit_or_handoff": 0.0,
+        "total": 0.0
+      },
+      "previous_presenter_state": "START",
+      "presenter_mode": "V1_PRESENTER_FULL",
+      "next_presenter_state": "END",
+      "transition_in": "",
+      "transition_out": "",
+      "overlap_tracks": ["presenter"],
+      "track_index": 0,
+      "allow_scene_overlap": false,
+      "scene_overlap_reason": "",
+      "timing_evidence": "",
+      "composition_mode": "INTEGRATED_HYPERFRAMES_SCENE",
+      "optional_independent_asset": false,
+      "independent_asset_approval_ref": ""
+    }
+  ]
+}

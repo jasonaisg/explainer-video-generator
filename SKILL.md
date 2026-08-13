@@ -7,7 +7,7 @@ description: 基于已经完成剪辑的口播 MP4、对应 MP3、文稿和画�
 
 在不改变用户口播成片剪辑节奏的前提下，制作完整科普讲解视频。只使用 HyperFrames 作为合成与动画框架；FFmpeg、FFprobe 仅作为媒体辅助工具。
 
-当前版本：`1.2.0`。以仓库根目录的 `VERSION` 文件为版本权威来源。
+当前版本：`1.3.0`。以仓库根目录的 `VERSION` 文件为版本权威来源。
 
 ## 强制执行制作契约
 
@@ -38,7 +38,7 @@ description: 基于已经完成剪辑的口播 MP4、对应 MP3、文稿和画�
 2. 提示中包含阶段任务包时，只作为该阶段 Session 工作。
 3. 其他情况读取 `00_control/project-state.json` 和 `00_control/session-registry.json`；除非明确分配了阶段，否则作为项目经理工作。
 
-创建、登记、交接、恢复或重新路由 Session 前，必须读取 [Session 调度规范](references/session-orchestration.md)。初始化项目或修改输入与配置前，必须读取[项目契约与目录规范](references/project-contract.md)。每个阶段只读取[阶段执行规范](references/phase-specifications.md)中当前阶段的执行卡，不要把全部阶段细节装入每个阶段 Session。
+创建、登记、交接、恢复或重新路由 Session 前，必须读取 [Session 调度规范](references/session-orchestration.md)。初始化项目或修改输入与配置前，必须读取[项目契约与目录规范](references/project-contract.md)。每个阶段只读取[阶段执行规范](references/phase-specifications.md)中当前阶段的执行卡，不要把全部阶段细节装入每个阶段 Session。执行 P04 时必须额外完整读取[第一性原理动效拆解规范](references/first-principles.md)；规划或实现 P05/P09 场景模块时必须读取[场景模块架构](references/scene-modules.md)。
 
 ## 初始化与恢复项目
 
