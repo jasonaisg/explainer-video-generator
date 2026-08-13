@@ -344,7 +344,10 @@ def migrate_governance(args: argparse.Namespace) -> None:
                     "evidence": [], "created_at": now(),
                 }
             write_json(path, data)
-    for data, path in ((state, state_path), (registry, registry_path), (config, config_path)):
+    # project-config.json may be a frozen P00 artifact. Governance is enabled by
+    # project-state.json, so migrating control state must not rewrite the config
+    # and invalidate its manifest hash.
+    for data, path in ((state, state_path), (registry, registry_path)):
         data["schema_version"] = GOVERNANCE_SCHEMA; data["updated_at"] = now(); write_json(path, data)
     for phase, _ in PHASES: sync_issue_summary(root, phase); render_open_issues(root, phase)
     summary = ", ".join(f"{phase}={value}" for phase, value in sorted(phase_classification.items())) or args.legacy_items_as or "无历史问题"

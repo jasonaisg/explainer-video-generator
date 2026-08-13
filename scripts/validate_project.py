@@ -186,7 +186,8 @@ def validate(root: Path) -> tuple[list[str], list[str]]:
             errors.append(f"{phase} 已验收但 handoff 内容为空")
         approval = folder / "approval-record.md"
         requires_authorization = phase in USER_GATES or dynamic_user_gate
-        if requires_authorization and phase_status.get(phase) == "ACCEPTED" and approval.is_file() and schema_at_least(state.get("schema_version"), 1, 1):
+        accepted_under = result.get("accepted_under_schema", state.get("schema_version"))
+        if requires_authorization and phase_status.get(phase) == "ACCEPTED" and approval.is_file() and schema_at_least(accepted_under, 1, 1):
             text = approval.read_text(encoding="utf-8")
             events = list(re.finditer(r"(?m)^##\s+(审阅互动|内容意见|提交授权)\b[^\n]*$", text))
             latest = text[events[-1].start():] if events else ""
@@ -195,15 +196,14 @@ def validate(root: Path) -> tuple[list[str], list[str]]:
             manifest_hash = re.search(r"交付清单 SHA-256：`?([0-9a-fA-F]{64})`?", latest)
             if not manifest_hash or not manifest_path.is_file() or sha256(manifest_path) != manifest_hash.group(1).lower():
                 errors.append(f"{phase} 已验收但提交授权绑定的交付清单已变化")
-            accepted_under = result.get("accepted_under_schema", state.get("schema_version"))
             if schema_at_least(state.get("schema_version"), 1, 3) and schema_at_least(accepted_under, 1, 3):
                 governance_hash = re.search(r"治理快照 SHA-256：`?([0-9a-fA-F]{64})`?", latest)
                 if not governance_hash or governance_snapshot(folder) != governance_hash.group(1).lower():
                     errors.append(f"{phase} 已验收但提交授权绑定的治理快照已变化")
             elif schema_at_least(state.get("schema_version"), 1, 3):
                 warnings.append(f"{phase} 在治理协议 {accepted_under} 下已验收，保留历史授权且不倒追治理快照")
-        elif requires_authorization and phase_status.get(phase) == "ACCEPTED" and not schema_at_least(state.get("schema_version"), 1, 1):
-            warnings.append(f"{phase} 使用 1.0 旧审批协议，保留历史验收；后续阶段须使用 SUBMISSION_AUTHORIZED")
+        elif requires_authorization and phase_status.get(phase) == "ACCEPTED" and not schema_at_least(accepted_under, 1, 1):
+            warnings.append(f"{phase} 在治理协议 {accepted_under} 下已验收，保留历史授权；后续阶段须使用 SUBMISSION_AUTHORIZED")
     stages = registry.get("stages", [])
     if [x.get("phase") for x in stages] != PHASES: errors.append("session-registry stages 必须按 P00–P14 排列")
     for entry in stages:

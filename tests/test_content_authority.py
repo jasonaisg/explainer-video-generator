@@ -112,12 +112,34 @@ class ContentAuthorityTest(unittest.TestCase):
             result_path = project / "stages/P03/stage-result.json"
             result = json.loads(result_path.read_text(encoding="utf-8")); result["issues"]["HIGH"] = 2
             result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            config_path = control / "project-config.json"
+            config_before = config_path.read_bytes()
             self.run_cli("migrate-governance", project, ok=False)
             self.run_cli("migrate-governance", project, "--legacy-phase-classification", "P03=ADVISORY")
+            self.assertEqual(config_path.read_bytes(), config_before)
             migrated = json.loads((project / "stages/P03/content-advice.json").read_text(encoding="utf-8"))["items"]
             self.assertEqual(len(migrated), 2)
             result = json.loads(result_path.read_text(encoding="utf-8"))
             self.assertEqual(result["issues"]["HIGH"], 0)
+
+    def test_migrated_legacy_user_gate_keeps_old_acceptance(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            project = Path(temp) / "legacy-accepted"
+            self.run_cli("init", project, "--name", "旧验收迁移", "--pm-session-id", "pm-4")
+            self.run_cli("register", project, "P00", "--session-id", "p00-4")
+            self.prepare_manifest(project)
+            state_path = project / "00_control/project-state.json"
+            registry_path = project / "00_control/session-registry.json"
+            result_path = project / "stages/P00/stage-result.json"
+            state = json.loads(state_path.read_text(encoding="utf-8")); state["schema_version"] = "1.0"; state["phase_status"]["P00"] = "ACCEPTED"
+            registry = json.loads(registry_path.read_text(encoding="utf-8")); registry["schema_version"] = "1.0"; registry["stages"][0]["status"] = "ACCEPTED"
+            result = json.loads(result_path.read_text(encoding="utf-8")); result["status"] = "SUBMITTED"
+            state_path.write_text(json.dumps(state, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            registry_path.write_text(json.dumps(registry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            self.run_cli("migrate-governance", project)
+            validated = subprocess.run([sys.executable, str(VALIDATE), str(project)], text=True, encoding="utf-8", capture_output=True, check=False)
+            self.assertEqual(validated.returncode, 0, validated.stdout + validated.stderr)
 
 
 if __name__ == "__main__":
