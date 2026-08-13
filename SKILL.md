@@ -7,7 +7,7 @@ description: 基于已经完成剪辑的口播 MP4、对应 MP3、文稿和画�
 
 在不改变用户口播成片剪辑节奏的前提下，制作完整科普讲解视频。只使用 HyperFrames 作为合成与动画框架；FFmpeg、FFprobe 仅作为媒体辅助工具。
 
-当前版本：`1.1.0`。以仓库根目录的 `VERSION` 文件为版本权威来源。
+当前版本：`1.2.0`。以仓库根目录的 `VERSION` 文件为版本权威来源。
 
 ## 强制执行制作契约
 
@@ -19,6 +19,14 @@ description: 基于已经完成剪辑的口播 MP4、对应 MP3、文稿和画�
 - 默认使用整句字幕。仅当安全区和可读性确有需要时，才能在从句边界或明显停顿处拆分过长句子。
 - 用户配置文件是画幅、帧率、安全区、平台遮挡区、字幕区、动画区和交付版本的最高技术依据。
 - 凡涉及含义、视觉识别、人物布局、代表设计、集成样片或全片方向的门禁，必须获得用户明确审批。
+
+## 服从用户的最终内容权威
+
+- 将用户提供的内容和用户最新明确决定视为项目内容的唯一最终权威，适用于全部阶段、项目经理、返工工单和下游 Session。
+- 只把 Agent 对事实、措辞、结构、叙事、审美、专业性或内容风险的判断作为参考建议。使用 `record-advice` 写入 `content-advice.json`；建议的 `gate_effect` 必须为 `NONE`，不得写入 `stage-issues.json`，不得生成 `BLOCKER/HIGH`，不得影响提交、验收或推进。
+- 用户拒绝、部分采纳或忽略建议时，准确记录用户决定并按决定执行。不得要求用户接受 Agent 的内容判断，不得以“风险接受”名义重新设置门禁，也不得在项目经理或下游阶段重复争论同一决定。
+- 只允许用户提出但尚未执行的要求，以及能够依据用户已确定的输入、配置、许可要求和技术契约客观复现的执行故障影响门禁。完整模型见[质量与审查规范](references/quality-and-review.md)。
+- 项目经理不得重新评判用户已经决定的内容，只能验证用户决定是否被准确贯彻、交付是否完整、技术契约是否满足及客观证据是否有效。
 
 ## 按多 Session 系统运行
 
@@ -34,13 +42,14 @@ description: 基于已经完成剪辑的口播 MP4、对应 MP3、文稿和画�
 
 ## 初始化与恢复项目
 
-在用户指定的项目目录执行初始化：
+初始化或调用任何外部工具前，必须先读取[环境与工具发现规范](references/environment-discovery.md)。复用当前机器已经可用的 Python 3 解释器或已激活环境，不得假定 Conda、venv、uv、操作系统、用户名、盘符或安装路径。先执行环境探测并保存报告，再在用户指定的项目目录初始化：
 
 ```text
-conda run -n conda_video python scripts/projectctl.py init <项目目录> --name <项目名称> [--pm-session-id <编号>]
+<python> scripts/check_environment.py --output <项目目录>/00_control/environment-report.json
+<python> scripts/projectctl.py init <项目目录> --name <项目名称> [--pm-session-id <编号>]
 ```
 
-在本项目的 Windows 环境中，使用 `C:\miniconda3\Scripts\conda.exe run -n conda_video`。涉及中文输出时，同时设置 `PYTHONUTF8=1` 和 `PYTHONIOENCODING=utf-8`。不得把密钥写入项目状态。
+`<python>` 表示当前机器经验证可用的 Python 3 调用方式；它可以来自系统解释器、已激活虚拟环境或用户已有的环境管理器。不得把开发者本机的调用方式复制进项目契约。涉及中文信息时确保进程和文件使用 UTF-8。不得把密钥写入环境报告或项目状态。
 
 初始化后：
 
@@ -53,16 +62,16 @@ conda run -n conda_video python scripts/projectctl.py init <项目目录> --name
 恢复项目时以文件为准，不得只依赖对话记忆。首先执行：
 
 ```text
-conda run -n conda_video python scripts/validate_project.py <项目目录>
+<python> scripts/validate_project.py <项目目录>
 ```
 
 ## 执行每个阶段
 
 项目经理必须：
 
-1. 确认前置门禁为 `ACCEPTED`，且未关闭的 `BLOCKER` 和 `HIGH` 问题均为零。
+1. 确认前置门禁为 `ACCEPTED`，且不存在未完成的用户要求或开放的客观阻断问题；Agent 内容建议不参与门禁。
 2. 准备阶段任务、登记 Session 编号和名称，并发送生成的阶段提示词。
-3. 只审阅门禁所需的结构化交接、交付清单、质检证据和用户决定。
+3. 只审阅门禁所需的结构化交接、交付清单、质检证据和用户决定；不得重新审判用户的内容选择。
 4. 验收或退回阶段；不得静默修改阶段 Session 的成果。
 5. 已审批的上游产物发生改变时，将受影响的下游阶段标记为失效。
 6. 维护产物级依赖图；变更发生时先建立变更请求和影响分析，取得用户对范围的明确批准后，再签发选择性返工工单。
@@ -72,7 +81,7 @@ conda run -n conda_video python scripts/validate_project.py <项目目录>
 1. 读取 `SKILL.md`、任务包、项目配置与状态、必要的上游交接，以及任务包点名的参考文件。
 2. 工作前校验输入路径与哈希；发现漂移时报告，不得猜测。
 3. 只在任务包授权的阶段和输出目录中写入。
-4. 满足所有验收标准并运行规定检查。
+4. 满足所有客观执行验收标准并运行规定检查；内容判断只能作为参考建议交付用户。
 5. 更新 `stage-result.json`、`deliverables-manifest.json`、`handoff.md`、`open-issues.md` 和 `approval-record.md`，然后提交项目经理。
 6. 不得自行验收、推进项目或启动下一阶段。
 
@@ -80,15 +89,15 @@ conda run -n conda_video python scripts/validate_project.py <项目目录>
 
 将阶段 Session 视为用户参与讨论和修改的工作空间，不得将其当作无人值守的后台任务。严格执行以下规则：
 
-1. 用户必须在对应阶段 Session 中讨论并审阅该阶段内容；文件批注、内容认可和最终提交授权是不同事件。需要用户参与的阶段应先展示成果、接收反馈并反复修改，再形成正式交接。
+1. 用户必须在对应阶段 Session 中讨论并审阅该阶段内容；文件批注、内容决定和最终提交授权是不同事件。需要用户参与的阶段应先展示成果、接收用户要求并执行用户决定，再形成正式交接。
 2. 项目经理不得代替用户作出内容审批。项目经理只验证审批证据、交付完整性、技术门禁和跨阶段一致性。
 3. P00、P04、P05、P07、P08、P10、P14 未取得用户对最终版本的明确“可以提交项目经理”授权时，不得提交。接收或批注文件、回答问题、认可方向、原则同意、附条件批准、沉默、“先看看”或没有反对，都不构成提交授权。
 4. 阶段提交后必须通知项目经理。平台支持跨 Session 消息时直接通知；不支持时，阶段 Session 必须明确提示用户返回 `EVG-PM-<项目简称>`，由项目经理验收并创建下一阶段。
-5. 项目经理验收需要用户互动的阶段前，必须读取 `approval-record.md`，核对最新事件为 `SUBMISSION_AUTHORIZED`，并确认其对应最终产物版本、审批范围、未决事项为零、条件与问答均已关闭，以及用户授权原话；不得只依据阶段 Session 口头声明。
+5. 项目经理验收需要用户互动的阶段前，必须读取 `approval-record.md`，核对最新事件为 `SUBMISSION_AUTHORIZED`，并确认其对应最终产物版本、审批范围、未完成用户要求为零、开放客观阻断为零、条件与问答均已关闭，以及用户授权原话；不得把未采纳的 Agent 建议算作未决事项。
 6. 用户要求修改时，继续在原阶段 Session 中讨论和返工。不得把具体设计讨论转移到项目经理 Session；原 Session 无法使用时，按替代 Session 恢复协议处理。
 7. 项目经理 Session 只处理全局范围、调度、跨阶段冲突、版本失效、重大变更和正式放行，不承担阶段内的具体内容设计讨论。
 
-阶段内默认循环为：启动报告 → 分析或制作 → 展示阶段成果 → 用户批注、问答与附加要求 → 修改并逐项关闭 → 阶段自检并冻结最终版本 → 汇总最终版本、处理结果和零未决事项 → 单独询问是否授权提交项目经理 → 用户明确授权 → 记录 `SUBMISSION_AUTHORIZED` → 原样提交并通知项目经理。授权后若出现任何新问题、要求、答复、修改或新版本，授权立即失效，必须处理完后再次请求授权。无需用户审批的技术阶段可以在满足门禁后直接提交，但遇到事实冲突、媒体不同步、配置歧义、许可不清或需用户取舍的问题时仍必须暂停并互动。
+阶段内默认循环为：启动报告 → 分析或制作 → 展示阶段成果与可选参考建议 → 用户批注、问答与附加要求 → 执行用户决定并逐项关闭用户要求 → 阶段自检并冻结最终版本 → 汇总最终版本、处理结果、零开放客观阻断和零未完成用户要求 → 单独询问是否授权提交项目经理 → 用户明确授权 → 记录 `SUBMISSION_AUTHORIZED` → 原样提交并通知项目经理。Agent 新增内容建议不会使授权失效；用户新要求、客观问题、文件修改或新版本会使授权失效。无需用户审批的技术阶段可以在满足门禁后直接提交；需要用户取舍时记录 `USER_DECISION_PENDING`，用户决定后立即关闭并继续。
 
 十五个阶段的输入、动作、交付物和门禁见[阶段执行规范](references/phase-specifications.md)。问题等级、对抗审查、用户审批、渲染质检和完成定义见[质量与审查规范](references/quality-and-review.md)。
 
@@ -104,14 +113,14 @@ conda run -n conda_video python scripts/validate_project.py <项目目录>
 
 执行 P07–P13 前必须读取 [HyperFrames 制作规范](references/hyperframes-production.md)。开始编写画面前，还必须读取已安装的 HyperFrames、HyperFrames CLI、排版、字幕（开启时）、动效原则和转场说明。
 
-项目存在本地启动器时优先使用：
+从环境报告或项目配置读取已经验证的 HyperFrames 调用方式。以下 `<hyperframes>` 表示该机器解析出的实际命令或用户明确配置的启动器：
 
 ```text
-scripts\hyperframes-local.cmd doctor
-scripts\hyperframes-local.cmd lint <合成目录> --json
-scripts\hyperframes-local.cmd validate <合成目录> --json
-scripts\hyperframes-local.cmd inspect <合成目录> --json --at-transitions
-scripts\hyperframes-local.cmd render <合成目录> --quality draft
+<hyperframes> doctor
+<hyperframes> lint <合成目录> --json
+<hyperframes> validate <合成目录> --json
+<hyperframes> inspect <合成目录> --json --at-transitions
+<hyperframes> render <合成目录> --quality draft
 ```
 
 当随附文档与本机版本参数不同时，以实际安装的 CLI 帮助为准。迭代阶段使用草稿质量；只有全片初稿获批后才渲染高质量版本。保持时间轴确定性和从源文件到输出的可复现性。
@@ -127,6 +136,6 @@ scripts\hyperframes-local.cmd render <合成目录> --quality draft
 
 ## 停止与升级处理
 
-出现必需输入缺失、媒体漂移超出容差、事实冲突、配置区域含义不清、用户门禁待审批、许可不明确，或仍有 `BLOCKER`/`HIGH` 问题时，停止受影响阶段。记录阻塞原因，并只向用户提出一个明确的决策请求。不得虚构审批。
+出现必需输入缺失、媒体漂移超出容差、配置区域含义不清、用户门禁待审批、许可证据不满足用户配置，或仍有开放的客观阻断问题时，停止受影响阶段。内容分歧只能记录为非阻断建议；需要用户取舍时只等待用户决定，不得以 Agent 内容判断阻断。记录客观原因，并只向用户提出一个明确的决策请求。不得虚构审批。
 
 只有 P14 已验收，且交付清单、校验值、字幕侧车文件（适用时）、可编辑 HyperFrames 工程、最终质检报告和用户要求的全部成片版本都通过验证后，才能宣布项目完成。

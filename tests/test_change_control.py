@@ -64,7 +64,10 @@ class ChangeControlFlowTest(unittest.TestCase):
             self.run_cli(CHANGE, "record-review", project, "RW-0001-01", "--item-id", "Q1", "--status", "OPEN", "--message", "再解释一下时间点")
             self.run_cli(CHANGE, "submit-order", project, "RW-0001-01", "--summary", "不应成功", ok=False)
             self.run_cli(CHANGE, "record-review", project, "RW-0001-01", "--item-id", "Q1", "--status", "CLOSED", "--message", "已解释并确认")
+            self.run_cli(CHANGE, "record-advice", project, "RW-0001-01", "--advice-id", "ADV-1", "--topic", "措辞", "--recommendation", "建议改写", "--rationale", "Agent 参考意见")
+            self.run_cli(CHANGE, "record-owner-decision", project, "RW-0001-01", "--decision-id", "DEC-1", "--decision", "KEEP_ORIGINAL", "--scope", "返工产物措辞", "--decision-quote", "保留我的内容", "--advice-id", "ADV-1", "--advice-disposition", "REJECTED")
             self.run_cli(CHANGE, "authorize-order", project, "RW-0001-01", "--authorized-by", "用户", "--authorization-quote", "现在可以提交项目经理")
+            self.run_cli(CHANGE, "record-advice", project, "RW-0001-01", "--advice-id", "ADV-2", "--topic", "风格", "--recommendation", "建议换色", "--rationale", "仅供参考")
             self.run_cli(CHANGE, "submit-order", project, "RW-0001-01", "--summary", "时间轴已修正")
             self.run_cli(CHANGE, "accept-order", project, "RW-0001-01", "--evidence", "时间轴校验通过")
 

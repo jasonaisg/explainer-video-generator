@@ -27,7 +27,7 @@
 
 ## 命令执行顺序
 
-1. 运行本地启动器的 `doctor` 并记录版本。
+1. 从环境报告或项目配置取得已验证的 `<hyperframes>` 调用方式，运行 `doctor` 并记录版本。
 2. 使用 HyperFrames `init --non-interactive` 建立工程，不得自行创造不兼容的脚手架。
 3. 先编写静态关键帧并生成快照。
 4. 添加确定性时间轴。
@@ -36,7 +36,7 @@
 7. P08、P10 使用草稿质量；P12 使用高质量渲染。
 8. 对真实渲染文件执行 FFprobe 并生成哈希。
 
-以本机安装版本的 CLI 帮助为准。本项目优先使用 `scripts\hyperframes-local.cmd`；Windows PowerShell 阻止 `.ps1` 时使用 `npm.cmd` 或 `npx.cmd`。HyperFrames 转录必须分两步：先将媒体转为转录 JSON，再从 JSON 导出 SRT 或 VTT。
+以当前机器实际安装版本的 CLI 帮助为准。不得假定操作系统、Shell、包管理器或启动器后缀；自动发现失败时，要求用户提供该机器可执行的 HyperFrames 调用方式，并将其写入项目配置和环境报告。HyperFrames 转录必须分两步：先将媒体转为转录 JSON，再从 JSON 导出 SRT 或 VTT。
 
 ## 全屏与画中画连续性
 

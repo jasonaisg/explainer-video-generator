@@ -64,7 +64,7 @@ BLOCKED → READY → IN_PROGRESS ↔ WAITING_USER
 阶段产物首次冻结或验收前，使用 `register-artifact` 登记。先登记上游，再登记下游：
 
 ```text
-conda run -n conda_video python scripts/change_control.py register-artifact <项目目录> --artifact-id <稳定ID> --path <文件> --phase Pxx --version <版本> --type <类型> [--depends-on <上游ID[:REBUILD|VERIFY]>]
+<python> scripts/change_control.py register-artifact <项目目录> --artifact-id <稳定ID> --path <文件> --phase Pxx --version <版本> --type <类型> [--depends-on <上游ID[:REBUILD|VERIFY]>]
 ```
 
 登记依赖时只写直接依赖，不要把所有祖先重复列入。脚本拒绝不存在的依赖和循环依赖。
@@ -74,7 +74,7 @@ conda run -n conda_video python scripts/change_control.py register-artifact <项
 可复制 `assets/templates/artifact-map-template.json`，再由 `build_manifest.py --artifact-map <文件>` 把元数据写入清单。清单冻结后批量导入依赖图：
 
 ```text
-conda run -n conda_video python scripts/change_control.py import-manifest <项目目录> --manifest stages/Pxx/deliverables-manifest.json
+<python> scripts/change_control.py import-manifest <项目目录> --manifest stages/Pxx/deliverables-manifest.json
 ```
 
 导入器按依赖顺序处理同一清单中的节点，并拒绝缺失依赖、循环、文件漂移或对返工中产物的普通覆盖。
@@ -99,7 +99,7 @@ conda run -n conda_video python scripts/change_control.py import-manifest <项�
 项目经理忠实记录用户要求，不立即修改文件：
 
 ```text
-conda run -n conda_video python scripts/change_control.py create-request <项目目录> --title <标题> --description <完整需求> --reason <原因> --requested-by <请求人> --request-quote <用户原话> --target <artifact_id>
+<python> scripts/change_control.py create-request <项目目录> --title <标题> --description <完整需求> --reason <原因> --requested-by <请求人> --request-quote <用户原话> --target <artifact_id>
 ```
 
 一个请求可重复使用 `--target` 指定多个起点。目标不清楚时先与用户澄清；不得凭文件名猜测。
@@ -107,7 +107,7 @@ conda run -n conda_video python scripts/change_control.py create-request <项目
 ### 2. 生成影响分析
 
 ```text
-conda run -n conda_video python scripts/change_control.py analyze <项目目录> CR-xxxx
+<python> scripts/change_control.py analyze <项目目录> CR-xxxx
 ```
 
 项目经理向用户展示：变更起点、必须重建的产物、仅需验证的产物、对应阶段、明确不受影响的产物，以及预计需要恢复的 Session。此时任何节点仍保持原状态。
@@ -117,7 +117,7 @@ conda run -n conda_video python scripts/change_control.py analyze <项目目录>
 用户可以继续问答、增删目标或要求修正依赖。每次图或目标变化后必须重新分析。只有用户明确表示批准当前影响范围，才能记录：
 
 ```text
-conda run -n conda_video python scripts/change_control.py approve-plan <项目目录> CR-xxxx --approved-by <用户> --approval-quote <明确批准原话>
+<python> scripts/change_control.py approve-plan <项目目录> CR-xxxx --approved-by <用户> --approval-quote <明确批准原话>
 ```
 
 查看分析文件不等于批准；讨论方案、原则同意、只批准某个文件或含附加条件的答复也不能被扩张解释为全部批准。
@@ -125,7 +125,7 @@ conda run -n conda_video python scripts/change_control.py approve-plan <项目�
 ### 4. 签发工单
 
 ```text
-conda run -n conda_video python scripts/change_control.py issue-orders <项目目录> CR-xxxx
+<python> scripts/change_control.py issue-orders <项目目录> CR-xxxx
 ```
 
 该命令把受影响节点标为 `REWORK_REQUIRED` 或 `VERIFY_REQUIRED`，按产出阶段创建工单，并只放行没有未完成前置工单的工单。批准后的影响分析或依赖图发生变化时，脚本必须拒绝签发。
@@ -137,14 +137,14 @@ conda run -n conda_video python scripts/change_control.py issue-orders <项目�
 开始工单前生成提示词并恢复原 Session：
 
 ```text
-conda run -n conda_video python scripts/change_control.py order-prompt <项目目录> RW-xxxx-xx
-conda run -n conda_video python scripts/change_control.py start-order <项目目录> RW-xxxx-xx
+<python> scripts/change_control.py order-prompt <项目目录> RW-xxxx-xx
+<python> scripts/change_control.py start-order <项目目录> RW-xxxx-xx
 ```
 
 重建产物后登记新路径、版本与哈希：
 
 ```text
-conda run -n conda_video python scripts/change_control.py update-artifact <项目目录> RW-xxxx-xx --artifact-id <ID> --path <新文件> --version <新版本>
+<python> scripts/change_control.py update-artifact <项目目录> RW-xxxx-xx --artifact-id <ID> --path <新文件> --version <新版本>
 ```
 
 如果直接依赖发生变化，重复 `--depends-on` 写入完整的新直接依赖集合。旧节点元数据自动进入 `history`；旧文件和旧审批证据必须保留。
@@ -152,7 +152,7 @@ conda run -n conda_video python scripts/change_control.py update-artifact <项�
 仅需验证的产物必须运行与变更风险相称的回归检查，并记录可定位的证据：
 
 ```text
-conda run -n conda_video python scripts/change_control.py verify-artifact <项目目录> RW-xxxx-xx --artifact-id <ID> --evidence <报告路径、命令或结论>
+<python> scripts/change_control.py verify-artifact <项目目录> RW-xxxx-xx --artifact-id <ID> --evidence <报告路径、命令或结论>
 ```
 
 不得把“肉眼看起来没问题”作为唯一回归证据。媒体产物应检查时间、画幅、编码、同步或关键帧；字幕应检查文本、时间范围、安全区和烧录结果；工程产物应运行 HyperFrames 的 lint、validate、inspect 或对应测试。
@@ -162,18 +162,20 @@ conda run -n conda_video python scripts/change_control.py verify-artifact <项�
 所有返工工单都涉及已冻结成果，必须回到原阶段 Session 与用户互动。记录每一项反馈并使用稳定事项 ID：
 
 ```text
-conda run -n conda_video python scripts/change_control.py record-review <项目目录> RW-xxxx-xx --item-id <ITEM-ID> --status OPEN --message <反馈>
-conda run -n conda_video python scripts/change_control.py record-review <项目目录> RW-xxxx-xx --item-id <ITEM-ID> --status CLOSED --message <处理结果>
+<python> scripts/change_control.py record-review <项目目录> RW-xxxx-xx --item-id <ITEM-ID> --status OPEN --message <反馈>
+<python> scripts/change_control.py record-review <项目目录> RW-xxxx-xx --item-id <ITEM-ID> --status CLOSED --message <处理结果>
 ```
 
-文件批示、问答、内容认可或附条件同意不等于提交授权。重建和验证全部完成、所有事项关闭后，阶段 Session 展示最终产物版本、处理清单和回归证据，再单独询问：
+返工同样服从用户最终内容权威。Agent 对内容的判断使用 `change_control.py record-advice` 写入工单的 `advisory_items`，始终非阻断且不得撤销提交授权；不得把 Agent 建议写入 `review_items`。用户决定使用 `record-owner-decision` 保存，对项目经理及下游工单具有约束力。
+
+文件批示、问答、内容认可或附条件同意不等于提交授权。重建和验证全部完成、用户提出的事项全部关闭后，阶段 Session 展示最终产物版本、处理清单和回归证据，再单独询问：
 
 `当前返工工单 RW-xxxx-xx 的全部产物与验证已完成，未决事项为 0。你是否明确授权我把这个版本提交项目经理验收？`
 
 用户明确授权后执行：
 
 ```text
-conda run -n conda_video python scripts/change_control.py authorize-order <项目目录> RW-xxxx-xx --authorized-by <用户> --authorization-quote <明确授权原话>
+<python> scripts/change_control.py authorize-order <项目目录> RW-xxxx-xx --authorized-by <用户> --authorization-quote <明确授权原话>
 ```
 
 授权绑定工单内全部产物的版本和 SHA-256。授权后任何产物更新或审阅互动都会使授权失效。
@@ -193,7 +195,7 @@ EVG-Pxx-<项目简称>-RW-<变更号>-A<尝试号>
 平台返回真实编号后，使用命令完成分配并保留旧 Session 历史：
 
 ```text
-conda run -n conda_video python scripts/change_control.py assign-order <项目目录> RW-xxxx-xx --session-id <真实编号> [--session-name <名称>] [--platform <平台>] --reason <替代原因>
+<python> scripts/change_control.py assign-order <项目目录> RW-xxxx-xx --session-id <真实编号> [--session-name <名称>] [--platform <平台>] --reason <替代原因>
 ```
 
 ## 验收与关闭
@@ -201,13 +203,13 @@ conda run -n conda_video python scripts/change_control.py assign-order <项目�
 阶段 Session 提交工单：
 
 ```text
-conda run -n conda_video python scripts/change_control.py submit-order <项目目录> RW-xxxx-xx --summary <返工摘要>
+<python> scripts/change_control.py submit-order <项目目录> RW-xxxx-xx --summary <返工摘要>
 ```
 
-项目经理核对范围、版本、哈希、回归证据、零未决事项和最新提交授权后验收：
+项目经理核对范围、版本、哈希、回归证据、零未完成用户要求和最新提交授权后验收；不得因 Agent 内容建议未被采纳而拒绝工单：
 
 ```text
-conda run -n conda_video python scripts/change_control.py accept-order <项目目录> RW-xxxx-xx --evidence <验收证据>
+<python> scripts/change_control.py accept-order <项目目录> RW-xxxx-xx --evidence <验收证据>
 ```
 
 验收后，工单中的产物恢复为 `VALID`。脚本自动检查其他工单的真实前置关系，只把所有前置均已验收的工单从 `BLOCKED` 改为 `READY`。
@@ -215,7 +217,7 @@ conda run -n conda_video python scripts/change_control.py accept-order <项目�
 全部工单验收后，项目经理关闭请求：
 
 ```text
-conda run -n conda_video python scripts/change_control.py close-request <项目目录> CR-xxxx --evidence <整体回归与关闭证据>
+<python> scripts/change_control.py close-request <项目目录> CR-xxxx --evidence <整体回归与关闭证据>
 ```
 
 关闭前必须确认最终交付版本矩阵、项目状态、依赖图和实际文件一致。若 P14 已验收后发生变更，相关交付包和发布质检必须通过依赖图进入重建或验证工单，不能继续沿用旧的 `COMPLETE` 结论。

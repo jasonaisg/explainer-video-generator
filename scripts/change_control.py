@@ -302,7 +302,7 @@ def issue_orders(args: argparse.Namespace) -> None:
             "phase": phase, "status": "BLOCKED" if predecessors else "READY", "predecessor_orders": predecessors,
             "rebuild_artifacts": [x["artifact_id"] for x in items if x["mode"] == "REBUILD"],
             "verify_artifacts": [x["artifact_id"] for x in items if x["mode"] == "VERIFY"],
-            "completed_artifacts": [], "verified_artifacts": {}, "review_items": {}, "authorization": None,
+            "completed_artifacts": [], "verified_artifacts": {}, "review_items": {}, "advisory_items": {}, "owner_decisions": {}, "authorization": None,
             "assigned_session_name": entry["session_name"], "assigned_session_id": entry["session_id"],
             "attempt": int(entry.get("attempt", 1)), "created_at": now(), "updated_at": now(),
         }
@@ -411,6 +411,33 @@ def record_review(args: argparse.Namespace) -> None:
     print(f"已记录审阅事项：{args.item_id} / {args.status}；此前授权（如有）已失效")
 
 
+def record_advice(args: argparse.Namespace) -> None:
+    root = Path(args.root).resolve(); bootstrap(root); path, order = load_order(root, args.work_order)
+    if order["status"] not in {"IN_PROGRESS", "WAITING_USER", "SUBMISSION_AUTHORIZED"}: raise SystemExit("工单当前不能记录内容建议")
+    items = order.setdefault("advisory_items", {})
+    if args.advice_id in items: raise SystemExit(f"内容建议编号已存在：{args.advice_id}")
+    items[args.advice_id] = {"topic": args.topic, "recommendation": args.recommendation, "rationale": args.rationale, "status": "PRESENTED", "gate_effect": "NONE", "created_at": now()}
+    set_order(root, path, order)
+    print(f"已记录返工非阻断内容建议：{args.advice_id}；工单状态与提交授权均未改变")
+
+
+def record_owner_decision(args: argparse.Namespace) -> None:
+    root = Path(args.root).resolve(); bootstrap(root); path, order = load_order(root, args.work_order)
+    if order["status"] not in {"IN_PROGRESS", "WAITING_USER", "SUBMISSION_AUTHORIZED"}: raise SystemExit("工单当前不能记录用户决定")
+    if len(args.decision_quote.strip()) < 2: raise SystemExit("必须记录用户决定原话")
+    decisions = order.setdefault("owner_decisions", {})
+    if args.decision_id in decisions: raise SystemExit(f"用户决定编号已存在：{args.decision_id}")
+    advice_ids = args.advice_id or []; items = order.setdefault("advisory_items", {})
+    missing = [item for item in advice_ids if item not in items]
+    if missing: raise SystemExit(f"内容建议不存在：{missing}")
+    for item in advice_ids: items[item].update({"status": args.advice_disposition, "decision_id": args.decision_id, "decided_at": now()})
+    decisions[args.decision_id] = {"decision": args.decision, "scope": args.scope, "quote": args.decision_quote, "decided_by": args.decided_by, "advice_ids": advice_ids, "status": "BINDING", "decided_at": now()}
+    invalidate_authorization(order); set_order(root, path, order)
+    with (order_dir(root, args.work_order) / "approval-record.md").open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(f"\n## 用户最终决定 {now()}\n\n- 决定：`{args.decision}`\n- 范围：{args.scope}\n- 用户原话：{args.decision_quote}\n- 关联参考建议：{', '.join(advice_ids) or '无'}\n- 权威效果：不得因 Agent 内容意见重新阻断。\n")
+    print(f"已记录返工具有约束力的用户最终决定：{args.decision_id}；此前授权（如有）已失效")
+
+
 def authorization_snapshot(root: Path, order: dict) -> dict:
     graph = load(graph_path(root)); ids = order["rebuild_artifacts"] + order["verify_artifacts"]
     return {artifact_id: {"version": graph["nodes"][artifact_id]["version"], "sha256": graph["nodes"][artifact_id]["sha256"]} for artifact_id in ids}
@@ -491,6 +518,8 @@ def parser() -> argparse.ArgumentParser:
     x = sub.add_parser("update-artifact"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--artifact-id", required=True); x.add_argument("--path", required=True); x.add_argument("--version", required=True); x.add_argument("--depends-on", action="append"); x.set_defaults(func=update_artifact)
     x = sub.add_parser("verify-artifact"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--artifact-id", required=True); x.add_argument("--evidence", required=True); x.set_defaults(func=verify_artifact)
     x = sub.add_parser("record-review"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--item-id", required=True); x.add_argument("--status", choices=["OPEN", "CLOSED"], required=True); x.add_argument("--message", required=True); x.set_defaults(func=record_review)
+    x = sub.add_parser("record-advice"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--advice-id", required=True); x.add_argument("--topic", required=True); x.add_argument("--recommendation", required=True); x.add_argument("--rationale", required=True); x.set_defaults(func=record_advice)
+    x = sub.add_parser("record-owner-decision"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--decision-id", required=True); x.add_argument("--decision", required=True, choices=["KEEP_ORIGINAL", "ACCEPT_ADVICE", "PARTIAL", "CUSTOM"]); x.add_argument("--scope", required=True); x.add_argument("--decision-quote", required=True); x.add_argument("--decided-by", default="用户"); x.add_argument("--advice-id", action="append"); x.add_argument("--advice-disposition", choices=["ACCEPTED", "PARTIALLY_ACCEPTED", "REJECTED", "NOTED"], default="NOTED"); x.set_defaults(func=record_owner_decision)
     x = sub.add_parser("authorize-order"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--authorized-by", required=True); x.add_argument("--authorization-quote", required=True); x.set_defaults(func=authorize_order)
     x = sub.add_parser("submit-order"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--summary", required=True); x.set_defaults(func=submit_order)
     x = sub.add_parser("accept-order"); x.add_argument("root"); x.add_argument("work_order"); x.add_argument("--evidence", required=True); x.set_defaults(func=accept_order)
