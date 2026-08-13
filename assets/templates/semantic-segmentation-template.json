@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "master_timeline_ref": "03_content_plan/master-timeline.json",
+  "final_captions_ref": "09_captions/captions-timeline.json",
+  "coverage": {
+    "timeline_segment_ids": ["S001"],
+    "final_caption_ids": ["caption-0001"]
+  },
+  "segments": [
+    {
+      "id": "P04-S001",
+      "start_seconds": 0.0,
+      "end_seconds": 1.0,
+      "timeline_segment_ids": ["S001"],
+      "final_caption_ids": ["caption-0001"],
+      "full_transcript": "",
+      "cognitive_task": "",
+      "boundary_reason": {
+        "start_reason": "",
+        "not_merge_previous": "首个切片",
+        "not_split_internal": "",
+        "end_reason": "",
+        "next_task_reason": "末个切片"
+      }
+    }
+  ]
+}

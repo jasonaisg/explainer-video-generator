@@ -56,6 +56,15 @@ class MotionTimingValidationTest(unittest.TestCase):
     def test_valid_integrated_scene_passes(self) -> None:
         self.run_validator(self.data())
 
+    def test_schema_11_requires_scene_package_and_individual_script(self) -> None:
+        data = self.data(); data["schema_version"] = "1.1"
+        result = self.run_validator(data, ok=False)
+        self.assertIn("scene_package_index_ref", result.stdout)
+        self.assertIn("scene_script_ref", result.stdout)
+        data["scene_package_index_ref"] = "04_design/scenes/scene-package-index.json"
+        data["scenes"][0]["scene_script_ref"] = "04_design/scenes/A01/motion-script.md"
+        self.run_validator(data)
+
     def test_action_budget_cannot_exceed_locked_interval(self) -> None:
         data = self.data(); budget = data["scenes"][0]["action_budget_seconds"]
         budget.update({"readable_hold": 2.0, "total": 5.5})

@@ -43,10 +43,12 @@ def close(left: object, right: object) -> bool:
 def validate(root: Path, index_path: Path, implemented: bool) -> list[str]:
     issues: list[str] = []
     index = load(index_path, issues)
-    if index.get("schema_version") != "1.0": issues.append("索引 schema_version 必须为 1.0")
+    index_schema = index.get("schema_version")
+    if index_schema not in {"1.0", "1.1"}: issues.append("索引 schema_version 必须为 1.0 或 1.1")
     for key in ("master_timeline_ref", "design_ref"):
         if not str(index.get(key, "")).strip(): issues.append(f"索引缺少 {key}")
     timing_path = project_path(root, index.get("motion_timing_ref"), "motion_timing_ref", issues)
+    if index_schema == "1.1" and not str(index.get("p05_scene_package_index_ref", "")).strip(): issues.append("索引缺少 p05_scene_package_index_ref")
     timing = load(timing_path, issues) if timing_path and timing_path.is_file() else {}
     if timing_path and not timing_path.is_file(): issues.append(f"动作时间设计不存在：{timing_path}")
     timing_scenes = {item.get("scene_id"): item for item in timing.get("scenes", [])}
@@ -66,7 +68,8 @@ def validate(root: Path, index_path: Path, implemented: bool) -> list[str]:
         if manifest_path in seen_manifests: issues.append(f"{scene_id} manifest 路径重复")
         seen_manifests.add(manifest_path)
         manifest = load(manifest_path, issues)
-        if manifest.get("schema_version") != "1.0": issues.append(f"{scene_id} manifest schema_version 必须为 1.0")
+        manifest_schema = manifest.get("schema_version")
+        if manifest_schema not in {"1.0", "1.1"}: issues.append(f"{scene_id} manifest schema_version 必须为 1.0 或 1.1")
         if manifest.get("scene_id") != scene_id: issues.append(f"{scene_id} manifest 中的 scene_id 不一致")
         if manifest.get("status") not in {"PLANNED", "IMPLEMENTED"}: issues.append(f"{scene_id} status 非法")
         if implemented and manifest.get("status") != "IMPLEMENTED": issues.append(f"{scene_id} 尚未标记 IMPLEMENTED")
@@ -79,6 +82,10 @@ def validate(root: Path, index_path: Path, implemented: bool) -> list[str]:
             issues.append(f"{scene_id} 在动作时间设计中不存在"); timing_scene = {}
         expected_timing_ref = f"{index.get('motion_timing_ref')}#{scene_id}"
         if manifest.get("motion_timing_ref") != expected_timing_ref: issues.append(f"{scene_id} motion_timing_ref 应为 {expected_timing_ref}")
+        if manifest_schema == "1.1":
+            if not str(manifest.get("p05_scene_script_ref", "")).strip(): issues.append(f"{scene_id} 缺少 p05_scene_script_ref")
+            review_refs = manifest.get("p05_review_image_refs")
+            if not isinstance(review_refs, list) or len(review_refs) != 3 or not all(isinstance(x, str) and x.strip() for x in review_refs): issues.append(f"{scene_id} 必须引用 P05 三张批准审阅图")
         if timing_scene and manifest.get("candidate_ids") != timing_scene.get("candidate_ids"):
             issues.append(f"{scene_id} candidate_ids 与 P05 动作时间设计不一致")
         absolute = manifest.get("absolute_timing", {}); local = manifest.get("local_timing", {})

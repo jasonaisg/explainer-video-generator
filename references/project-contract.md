@@ -52,7 +52,13 @@
 │   └── sfx/                       # 音效
 ├── 02_media_analysis/             # 媒体探测与同步
 ├── 03_content_plan/               # 转录、事实与内容方案
-├── 04_design/                     # 设计与动效脚本
+├── 04_design/                     # 设计系统、动作时间与 P05 独立场景包
+│   └── scenes/
+│       ├── scene-package-index.json
+│       ├── A01/
+│       │   ├── motion-script.md   # A01 独立详细动效脚本
+│       │   └── review/            # A01 三张用户审阅图
+│       └── A02/...
 ├── 05_reviews/                    # 审查报告
 ├── 06_hyperframes/                # HyperFrames 工程
 │   ├── src/

@@ -1,11 +1,13 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "timeline_ref": "03_content_plan/master-timeline.json",
   "candidate_matrix_ref": "04_design/animation-candidate-matrix.json",
+  "scene_package_index_ref": "04_design/scenes/scene-package-index.json",
   "scenes": [
     {
       "scene_id": "A01",
       "candidate_ids": ["C001"],
+      "scene_script_ref": "04_design/scenes/A01/motion-script.md",
       "start_seconds": 0.0,
       "end_seconds": 0.0,
       "trigger_time_seconds": 0.0,

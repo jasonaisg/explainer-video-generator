@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "motion_timing_ref": "04_design/motion-timing.json",
+  "design_ref": "04_design/DESIGN.md",
+  "review_frame_size": {"width": 1080, "height": 1920},
+  "scenes": [
+    {
+      "scene_id": "A01",
+      "candidate_ids": ["P04-S001"],
+      "start_seconds": 0.0,
+      "end_seconds": 1.0,
+      "script_path": "04_design/scenes/A01/motion-script.md",
+      "script_version": "v1",
+      "review_images": [
+        {
+          "role": "ENTRY_ESTABLISHED",
+          "path": "04_design/scenes/A01/review/01-entry-established.png",
+          "absolute_time_seconds": 0.2,
+          "local_time_seconds": 0.2
+        },
+        {
+          "role": "INFORMATION_COMPLETE",
+          "path": "04_design/scenes/A01/review/02-information-complete.png",
+          "absolute_time_seconds": 0.7,
+          "local_time_seconds": 0.7
+        },
+        {
+          "role": "HANDOFF_READY",
+          "path": "04_design/scenes/A01/review/03-handoff-ready.png",
+          "absolute_time_seconds": 0.95,
+          "local_time_seconds": 0.95
+        }
+      ],
+      "review_status": "PENDING",
+      "approval_ref": ""
+    }
+  ]
+}

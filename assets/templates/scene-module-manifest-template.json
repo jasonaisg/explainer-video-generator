@@ -1,10 +1,16 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "scene_id": "A01",
   "status": "PLANNED",
   "candidate_ids": ["C001"],
   "timeline_segment_ids": ["S001"],
   "motion_timing_ref": "04_design/motion-timing.json#A01",
+  "p05_scene_script_ref": "04_design/scenes/A01/motion-script.md",
+  "p05_review_image_refs": [
+    "04_design/scenes/A01/review/01-entry-established.png",
+    "04_design/scenes/A01/review/02-information-complete.png",
+    "04_design/scenes/A01/review/03-handoff-ready.png"
+  ],
   "absolute_timing": {
     "start_seconds": 0.0,
     "end_seconds": 0.0,

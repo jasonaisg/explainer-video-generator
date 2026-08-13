@@ -1,8 +1,9 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "master_timeline_ref": "03_content_plan/master-timeline.json",
   "motion_timing_ref": "04_design/motion-timing.json",
   "design_ref": "04_design/DESIGN.md",
+  "p05_scene_package_index_ref": "04_design/scenes/scene-package-index.json",
   "scenes": [
     {
       "scene_id": "A01",

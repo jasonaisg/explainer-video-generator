@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0",
+  "candidate_matrix_version": "2.0",
+  "decisions": [
+    {
+      "segment_id": "P04-S001",
+      "selected_mode": "V1_PRESENTER_FULL",
+      "final_screen_text": "",
+      "final_visual_expression": "人物全屏，只显示最终字幕",
+      "user_notes": ""
+    }
+  ],
+  "exported_at": ""
+}

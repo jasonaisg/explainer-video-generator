@@ -1,22 +1,26 @@
 {
-  "schema_version": "1.0",
-  "timeline_ref": "03_content_plan/master-timeline.json",
+  "schema_version": "2.0",
+  "segmentation_ref": "stages/P04/semantic-segmentation.json",
+  "master_timeline_ref": "03_content_plan/master-timeline.json",
+  "final_captions_ref": "09_captions/captions-timeline.json",
   "coverage": {
-    "start_seconds": 0.0,
-    "end_seconds": 0.0,
-    "source_segment_ids": ["S001"],
-    "uncovered_segment_ids": []
+    "timeline_segment_ids": ["S001"],
+    "final_caption_ids": ["caption-0001"]
   },
   "candidates": [
     {
-      "id": "C001",
+      "id": "P04-S001",
       "start_seconds": 0.0,
-      "end_seconds": 0.0,
-      "transcript_ref": "",
+      "end_seconds": 1.0,
       "timeline_segment_ids": ["S001"],
+      "final_caption_refs": [
+        {"id": "caption-0001", "start_seconds": 0.0, "end_seconds": 1.0, "text": ""}
+      ],
+      "cognitive_task": "",
+      "boundary_reason": "",
       "trigger_time_seconds": 0.0,
-      "semantic_complete_time_seconds": 0.0,
-      "available_duration_seconds": 0.0,
+      "semantic_complete_time_seconds": 1.0,
+      "available_duration_seconds": 1.0,
       "timing_feasibility": "PRESENTER_ONLY",
       "timing_evidence": "",
       "first_principles": {
@@ -27,39 +31,98 @@
         "minimal_structure": "",
         "memory_result": ""
       },
-      "information_type": "",
-      "preferred_visual_structure": "",
-      "non_preferred_structure": "",
-      "scores": {
+      "visual_necessity_scores": {
         "comprehension_gain": {"value": 0, "evidence": ""},
         "memory_gain": {"value": 0, "evidence": ""},
         "information_density": {"value": 0, "evidence": ""},
         "misreading_risk": {"value": 0, "evidence": ""},
         "production_value": {"value": 0, "evidence": ""}
       },
-      "total_score": 0,
-      "threshold_recommendation": "PRESENTER_ONLY",
-      "screen_copy": {
-        "locked_full_fact": "",
-        "compressed_text": "",
-        "preserved_qualifiers": []
+      "visual_necessity_total": 0,
+      "visual_necessity_recommendation": "PRESENTER_ONLY",
+      "mode_options": {
+        "V1_PRESENTER_FULL": {
+          "natural_name": "人物全屏",
+          "purpose": "",
+          "screen_text": "",
+          "visual_structure": "人物源视频与最终字幕",
+          "appearance_sequence": "连续播放人物源视频",
+          "presenter_state": "FULL",
+          "layout_and_avoidance": "仅避让最终字幕与平台绝对遮挡区",
+          "cognitive_obstacle_reduced": "",
+          "timing_feasibility": "PASS",
+          "timing_evidence": "",
+          "misreading_control": "不增加额外解释"
+        },
+        "V2_PRESENTER_OVERLAY": {
+          "natural_name": "人物全屏＋轻提示",
+          "purpose": "",
+          "screen_text": "",
+          "visual_structure": "",
+          "appearance_sequence": "",
+          "presenter_state": "FULL",
+          "layout_and_avoidance": "",
+          "cognitive_obstacle_reduced": "",
+          "timing_feasibility": "SIMPLIFY",
+          "timing_evidence": "",
+          "misreading_control": ""
+        },
+        "V3_ANIMATION_WITH_PIP": {
+          "natural_name": "主动画＋人物小窗",
+          "purpose": "",
+          "screen_text": "",
+          "visual_structure": "",
+          "appearance_sequence": "",
+          "presenter_state": "PIP",
+          "layout_and_avoidance": "主动画使用安全范围内最大画布，人物小窗作为叠加元素",
+          "cognitive_obstacle_reduced": "",
+          "timing_feasibility": "SIMPLIFY",
+          "timing_evidence": "",
+          "misreading_control": ""
+        }
       },
-      "agent_recommendation": "PRESENTER_ONLY",
-      "agent_recommendation_reason": "",
-      "final_disposition": "PENDING",
-      "presenter_mode": "V1_PRESENTER_FULL",
-      "layout_constraints": "",
+      "mode_fit_scores": {
+        "V1_PRESENTER_FULL": {
+          "cognitive_goal_fit": {"value": 0, "evidence": ""},
+          "obstacle_reduction": {"value": 0, "evidence": ""},
+          "minimal_sufficiency": {"value": 0, "evidence": ""},
+          "misreading_control": {"value": 0, "evidence": ""},
+          "timing_fit": {"value": 0, "evidence": ""}
+        },
+        "V2_PRESENTER_OVERLAY": {
+          "cognitive_goal_fit": {"value": 0, "evidence": ""},
+          "obstacle_reduction": {"value": 0, "evidence": ""},
+          "minimal_sufficiency": {"value": 0, "evidence": ""},
+          "misreading_control": {"value": 0, "evidence": ""},
+          "timing_fit": {"value": 0, "evidence": ""}
+        },
+        "V3_ANIMATION_WITH_PIP": {
+          "cognitive_goal_fit": {"value": 0, "evidence": ""},
+          "obstacle_reduction": {"value": 0, "evidence": ""},
+          "minimal_sufficiency": {"value": 0, "evidence": ""},
+          "misreading_control": {"value": 0, "evidence": ""},
+          "timing_fit": {"value": 0, "evidence": ""}
+        }
+      },
+      "mode_recommendation": "V1_PRESENTER_FULL",
+      "mode_recommendation_reason": "",
+      "user_selected_mode": "PENDING",
+      "approved_plan": null,
       "adjacency": {
         "previous_presenter_state": "START",
+        "current_presenter_state": "FULL",
         "next_presenter_state": "END",
         "transition_in_intent": "",
         "transition_out_intent": ""
       },
-      "overlap_tracks": ["presenter"],
-      "not_selected_reason": "",
-      "user_override": false,
-      "user_decision_quote": "",
+      "overlap_tracks": ["presenter", "captions"],
+      "layout_constraints": "",
+      "user_decision_ref": "",
       "approval_ref": ""
     }
-  ]
+  ],
+  "decision_artifact": {
+    "path": "",
+    "sha256": ""
+  }
 }

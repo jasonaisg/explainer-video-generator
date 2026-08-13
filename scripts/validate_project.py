@@ -16,6 +16,11 @@ VALID_ARTIFACT_STATES = {"VALID", "REWORK_REQUIRED", "VERIFY_REQUIRED", "PENDING
 VALID_ORDER_STATES = {"BLOCKED", "READY", "IN_PROGRESS", "WAITING_USER", "SUBMISSION_AUTHORIZED", "SUBMITTED", "ACCEPTED", "CANCELLED"}
 FILES = ("task-packet.md", "stage-result.json", "deliverables-manifest.json", "handoff.md", "open-issues.md", "approval-record.md")
 GOVERNANCE_FILES = ("content-advice.json", "owner-decisions.json", "review-items.json", "stage-issues.json")
+DYNAMIC_MANIFEST_KEYS = {
+    "authorization", "authorization_status", "submission_status", "stage_status",
+    "waiting_authorization", "can_advance", "submitted", "accepted",
+    "submission_authorized", "pending_submission_authorization",
+}
 OBJECTIVE_ISSUE_CATEGORIES = {
     "INPUT_MISSING", "FILE_INTEGRITY", "HASH_DRIFT", "MEDIA_DECODE", "MEDIA_SYNC",
     "CONFIG_CONFORMANCE", "RENDER_FAILURE", "RIGHTS_EVIDENCE", "OUTPUT_MISSING",
@@ -49,6 +54,27 @@ def schema_at_least(value: object, major: int, minor: int) -> bool:
         return (int(parts[0]), int(parts[1])) >= (major, minor)
     except (ValueError, IndexError):
         return False
+
+
+def manifest_policy_issues(manifest: object, phase: str) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(manifest, dict): return ["交付清单根节点必须是对象"]
+    def walk(value: object, path: str = "") -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized = str(key).strip().lower().replace("-", "_")
+                if normalized in DYNAMIC_MANIFEST_KEYS: issues.append(f"交付清单不得保存动态流程字段：{path + str(key)}")
+                walk(child, f"{path}{key}.")
+        elif isinstance(value, list):
+            for index, child in enumerate(value): walk(child, f"{path}{index}.")
+    walk(manifest)
+    reserved = {"approval-record.md", "stage-result.json", "open-issues.md", *GOVERNANCE_FILES}
+    for item in manifest.get("files", []):
+        if not isinstance(item, dict): issues.append("交付清单 files 成员必须是对象"); continue
+        rel = str(item.get("path", "")).replace("\\", "/")
+        if Path(rel).name in reserved or rel in {f"stages/{phase}/{name}" for name in reserved}:
+            issues.append(f"交付清单不得包含可变治理控制记录：{rel}")
+    return issues
 
 
 def validate_change_control(root: Path, state: dict, errors: list[str], warnings: list[str]) -> None:
@@ -135,6 +161,14 @@ def validate_governance(folder: Path, phase: str, result: dict, accepted: bool, 
         expected_gate = "BLOCKING" if severity in {"BLOCKER", "HIGH"} else "NON_BLOCKING"
         if item.get("gate_effect") != expected_gate: errors.append(f"{phase} 客观问题门禁与等级不一致：{issue_id}")
         if item.get("status") == "OPEN" and item.get("gate_effect") == "BLOCKING": open_blocking.append(issue_id)
+        if item.get("revision_type") == "CONTROL" and item.get("status") == "CLOSED":
+            protected = item.get("protected_content")
+            if not isinstance(protected, list) or not protected:
+                errors.append(f"{phase} 控制修订缺少受保护内容哈希证据：{issue_id}")
+            else:
+                for proof in protected:
+                    if not isinstance(proof, dict) or proof.get("unchanged") is not True or proof.get("sha256_before") != proof.get("sha256_after"):
+                        errors.append(f"{phase} 控制修订未证明内容保持不变：{issue_id}")
     if result.get("issues") != counts: errors.append(f"{phase} stage-result 问题计数不是 stage-issues.json 的派生结果")
     if accepted and open_reviews: errors.append(f"{phase} 已验收但仍有未完成用户要求：{open_reviews}")
     if accepted and open_blocking: errors.append(f"{phase} 已验收但仍有开放客观阻断问题：{open_blocking}")
@@ -169,9 +203,7 @@ def validate(root: Path) -> tuple[list[str], list[str]]:
         if manifest_path.is_file():
             manifest = load(manifest_path, errors)
             if schema_at_least(state.get("schema_version"), 1, 3):
-                reserved = {f"stages/{phase}/{name}" for name in ("approval-record.md", "stage-result.json", "open-issues.md", *GOVERNANCE_FILES)}
-                listed = {str(item.get("path", "")).replace("\\", "/") for item in manifest.get("files", [])}
-                if reserved & listed: errors.append(f"{phase} 交付清单包含可变治理控制记录：{sorted(reserved & listed)}")
+                errors.extend(f"{phase} {item}" for item in manifest_policy_issues(manifest, phase))
             if phase_status.get(phase) == "ACCEPTED" and not manifest.get("files"):
                 errors.append(f"{phase} 已验收但交付物清单为空")
             for item in manifest.get("files", []):
@@ -209,6 +241,20 @@ def validate(root: Path) -> tuple[list[str], list[str]]:
     for entry in stages:
         phase = entry.get("phase")
         if phase_status.get(phase) == "ACCEPTED" and entry.get("session_id") == "UNASSIGNED": errors.append(f"{phase} 已验收但无真实 Session ID")
+        allowed = {
+            "NOT_STARTED": {"PLANNED", "CREATED"}, "READY": {"PLANNED", "CREATED", "ACTIVE"},
+            "IN_PROGRESS": {"ACTIVE"}, "SELF_CHECK": {"ACTIVE"}, "USER_REVIEW": {"ACTIVE", "WAITING_USER"},
+            "SUBMISSION_AUTHORIZED": {"SUBMISSION_AUTHORIZED"}, "SUBMITTED": {"SUBMITTED"},
+            "REVISION_REQUIRED": {"REVISION_REQUIRED"}, "ACCEPTED": {"ACCEPTED"},
+            "STALE": {"SUPERSEDED", "REVISION_REQUIRED"}, "BLOCKED": {"FAILED", "WAITING_USER"},
+        }.get(phase_status.get(phase), set())
+        if entry.get("status") not in allowed: errors.append(f"{phase} project-state={phase_status.get(phase)} 与 registry={entry.get('status')} 不一致")
+        result_path = root / "stages" / str(phase) / "stage-result.json"
+        result = load(result_path, errors) if result_path.is_file() else {}
+        accepted_under = result.get("accepted_under_schema", state.get("schema_version", "1.0"))
+        legacy_accepted_result = phase_status.get(phase) == "ACCEPTED" and not schema_at_least(accepted_under, 1, 1) and result.get("status") == "SUBMITTED"
+        if phase_status.get(phase) in {"SUBMITTED", "REVISION_REQUIRED", "ACCEPTED"} and result.get("status") != phase_status.get(phase) and not legacy_accepted_result:
+            errors.append(f"{phase} project-state={phase_status.get(phase)} 与 stage-result={result.get('status')} 不一致")
     if config.get("source", {}).get("picture_locked") is not True: errors.append("source.picture_locked 必须为 true")
     if config.get("source", {}).get("canonical_audio") != "audio_mp3": warnings.append("canonical_audio 不是建议的 audio_mp3")
     if config.get("presenter", {}).get("always_visible") is not True: errors.append("presenter.always_visible 必须为 true")

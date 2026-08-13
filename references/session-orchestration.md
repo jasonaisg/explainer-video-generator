@@ -33,8 +33,8 @@ Session 状态：`PLANNED`、`CREATED`、`ACTIVE`、`WAITING_USER`、`SUBMISSION
 
 - `task-packet.md`：由项目经理确定的范围、读取路径、写入路径、禁止事项、交付物和门禁。
 - `stage-result.json`：结果、检查、决定、问题数量和建议的下一步动作。
-- `deliverables-manifest.json`：路径、类型、版本、SHA-256、制作方和验证证据。
-- `handoff.md`：下一阶段真正需要的精简事实，不得复制整段讨论。
+- `deliverables-manifest.json`：只保存阶段与内容版本、冻结产物路径、类型、字节数、SHA-256、制作方、验证证据和不随流程变化的修订说明。
+- `handoff.md`：下一阶段真正需要的精简事实，不得复制整段讨论或动态授权状态；需要提及时统一写“实时状态以 `project-state.json` 与 `approval-record.md` 最新事件为准”。
 - `open-issues.md`：负责人、等级、证据、所需决定和状态。
 - `approval-record.md`：审阅互动、内容意见、处理状态、最终提交授权、时间、范围和被替代授权的完整事件记录。
 - `content-advice.json`：Agent 的非阻断内容参考建议，`gate_effect` 永远为 `NONE`。
@@ -76,7 +76,15 @@ Session 状态：`PLANNED`、`CREATED`、`ACTIVE`、`WAITING_USER`、`SUBMISSION
 
 只有 `authorize-submit` 能生成 `SUBMISSION_AUTHORIZED`。此后任何用户 `record-review`、`record-approval`、客观问题、文件修改或新版本都会使授权失效；单纯新增 `record-advice` 不会使授权失效。提交与验收均以最新一个互动事件为准。
 
-交付清单不得包含 `approval-record.md`、`stage-result.json`、`open-issues.md`、`content-advice.json`、`owner-decisions.json`、`review-items.json` 或 `stage-issues.json`；这些是可变控制记录，不是冻结内容产物。提交授权分别绑定交付清单及其产物 SHA-256，以及用户决定、用户要求和客观问题组成的治理快照。授权后内容建议仍可增加；产物或治理快照变化时提交器必须拒绝提交并要求重新授权。
+交付清单不得包含 `approval-record.md`、`stage-result.json`、`open-issues.md`、`content-advice.json`、`owner-decisions.json`、`review-items.json` 或 `stage-issues.json`；这些是可变控制记录，不是冻结内容产物。清单任何层级都不得保存授权、等待授权、提交、验收或能否推进等动态字段。提交授权分别绑定交付清单及其产物 SHA-256，以及用户决定、用户要求和客观问题组成的治理快照。授权后内容建议仍可增加；产物或治理快照变化时提交器必须拒绝提交并要求重新授权。
+
+动态流程状态只以 `00_control/project-state.json` 和当前阶段 `approval-record.md` 最新互动事件为权威。提交前必须运行：
+
+```text
+<python> scripts/projectctl.py validate-control-consistency <项目目录>
+```
+
+`submit` 在所有检查通过后以事务方式同步 `project-state.json`、`session-registry.json` 和 `stage-result.json`；任一写入失败时不得留下部分 `SUBMITTED` 状态。
 
 阶段内执行循环：
 
@@ -100,6 +108,13 @@ P01、P02、P03、P06、P09、P11、P12、P13 默认可以自主完成技术工�
 已审批产物发生变化时，读取[变更请求、产物依赖图与选择性返工规范](change-control.md)，使用 `change_control.py` 建立 `CR-xxxx`、产物级影响分析和 `RW-xxxx-xx` 工单。先取得用户对影响范围的明确批准，再修改产物。只使依赖图实际命中的产物失效；没有被命中的已审批成果继续有效。
 
 工单默认回到产物原阶段 Session。原 Session 不可用时才创建带 `-RW-<变更号>-A<尝试号>` 的同阶段替代 Session。每张工单独立完成用户互动、提交授权和项目经理验收；上游工单验收后只放行依赖它的工单。
+
+PM 退回应明确区分两种修订：
+
+- `CONTENT`：主产物、用户决定或视觉方案会变化；重新完成内容审批、冻结、提交授权和提交。
+- `CONTROL`：只修正状态、交接、清单结构或治理记录；使用 `return ... --revision-type CONTROL --protected-artifact <路径>` 登记所有必须保持不变的内容文件。关闭问题时官方命令重新计算 SHA-256，任何内容变化都拒绝关闭。
+
+两种修订都会使旧授权失效并要求重新冻结、重新授权。控制修订不得借机重评或修改用户内容决定；内容文件多于一个时重复使用 `--protected-artifact`。
 
 ## Session 恢复
 

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -15,7 +16,7 @@ PHASES = [
     ("P00", "项目初始化与输入契约"), ("P01", "媒体校验与同步"),
     ("P02", "转录校对与主时间轴"), ("P03", "事实与内容锁定"),
     ("P04", "动画筛选与人物布局"), ("P05", "导演脚本与视觉系统"),
-    ("P06", "制作前对抗式审查"), ("P07", "三页静态审阅图"),
+    ("P06", "制作前对抗式审查"), ("P07", "全场景视觉一致性审阅"),
     ("P08", "真实素材集成样片"), ("P09", "全场景与关键帧实现"),
     ("P10", "全片低质量初稿"), ("P11", "受控精修与回归"),
     ("P12", "最终高质量渲染"), ("P13", "成片对抗式质检"),
@@ -34,6 +35,11 @@ STANDARD_FILES = (
     "task-packet.md", "stage-result.json", "deliverables-manifest.json",
     "handoff.md", "open-issues.md", "approval-record.md",
 )
+DYNAMIC_MANIFEST_KEYS = {
+    "authorization", "authorization_status", "submission_status", "stage_status",
+    "waiting_authorization", "can_advance", "submitted", "accepted",
+    "submission_authorized", "pending_submission_authorization",
+}
 
 
 def now() -> str:
@@ -54,6 +60,33 @@ def write_json(path: Path, data: dict) -> None:
     temp = path.with_suffix(path.suffix + ".tmp")
     temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temp.replace(path)
+
+
+def write_json_bundle(items: list[tuple[Path, dict]]) -> None:
+    """Prepare every JSON file first, then replace all targets with rollback."""
+    prepared: list[tuple[Path, Path]] = []
+    originals: dict[Path, bytes | None] = {}
+    try:
+        for path, data in items:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temp = path.with_name(f".{path.name}.{os.getpid()}.txn.tmp")
+            temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            json.loads(temp.read_text(encoding="utf-8"))
+            prepared.append((path, temp)); originals[path] = path.read_bytes() if path.exists() else None
+        replaced: list[Path] = []
+        try:
+            for path, temp in prepared: temp.replace(path); replaced.append(path)
+        except OSError:
+            for path in replaced:
+                original = originals[path]
+                if original is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    rollback = path.with_name(f".{path.name}.{os.getpid()}.rollback.tmp")
+                    rollback.write_bytes(original); rollback.replace(path)
+            raise
+    finally:
+        for _, temp in prepared: temp.unlink(missing_ok=True)
 
 
 def root_paths(root: Path) -> tuple[Path, Path, Path]:
@@ -171,10 +204,34 @@ def latest_interaction_event(text: str) -> tuple[str, str]:
     return match.group(1), text[match.start():]
 
 
+def manifest_policy_issues(manifest: object, phase: str) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(manifest, dict): return ["交付清单根节点必须是对象"]
+    def walk(value: object, path: str = "") -> None:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                normalized = str(key).strip().lower().replace("-", "_")
+                if normalized in DYNAMIC_MANIFEST_KEYS:
+                    issues.append(f"交付清单不得保存动态流程字段：{path + str(key)}")
+                walk(child, f"{path}{key}.")
+        elif isinstance(value, list):
+            for index, child in enumerate(value): walk(child, f"{path}{index}.")
+    walk(manifest)
+    reserved_names = {"approval-record.md", "stage-result.json", "open-issues.md", *GOVERNANCE_FILES}
+    for item in manifest.get("files", []):
+        if not isinstance(item, dict): issues.append("交付清单 files 成员必须是对象"); continue
+        rel = str(item.get("path", "")).replace("\\", "/")
+        if Path(rel).name in reserved_names or rel in {f"stages/{phase}/{name}" for name in reserved_names}:
+            issues.append(f"交付清单不得包含可变治理控制记录：{rel}")
+    return issues
+
+
 def manifest_integrity(root: Path, phase: str) -> tuple[bool, str]:
     path = phase_dir(root, phase) / "deliverables-manifest.json"
     if not path.is_file(): return False, "缺少 deliverables-manifest.json"
     manifest = load_json(path)
+    policy = manifest_policy_issues(manifest, phase)
+    if policy: return False, policy[0]
     if not manifest.get("files"): return False, "交付清单为空"
     for item in manifest["files"]:
         rel = item.get("path", ""); expected = str(item.get("sha256", "")).lower()
@@ -184,6 +241,40 @@ def manifest_integrity(root: Path, phase: str) -> tuple[bool, str]:
         if not target.is_file(): return False, f"交付文件不存在：{rel}"
         if not expected or sha256(target) != expected: return False, f"交付文件哈希不匹配：{rel}"
     return True, ""
+
+
+def control_consistency_issues(root: Path) -> list[str]:
+    state_path, registry_path, _ = root_paths(root)
+    state, registry = load_json(state_path), load_json(registry_path)
+    issues: list[str] = []
+    entries = {item.get("phase"): item for item in registry.get("stages", []) if isinstance(item, dict)}
+    for phase, _ in PHASES:
+        phase_state = state.get("phase_status", {}).get(phase)
+        entry = entries.get(phase, {}); session_state = entry.get("status")
+        result = load_json(phase_dir(root, phase) / "stage-result.json")
+        result_state = result.get("status")
+        allowed_session = {
+            "NOT_STARTED": {"PLANNED", "CREATED"}, "READY": {"PLANNED", "CREATED", "ACTIVE"},
+            "IN_PROGRESS": {"ACTIVE"}, "SELF_CHECK": {"ACTIVE"},
+            "USER_REVIEW": {"ACTIVE", "WAITING_USER"},
+            "SUBMISSION_AUTHORIZED": {"SUBMISSION_AUTHORIZED"}, "SUBMITTED": {"SUBMITTED"},
+            "REVISION_REQUIRED": {"REVISION_REQUIRED"}, "ACCEPTED": {"ACCEPTED"},
+            "STALE": {"SUPERSEDED", "REVISION_REQUIRED"}, "BLOCKED": {"FAILED", "WAITING_USER"},
+        }.get(phase_state, set())
+        if session_state not in allowed_session: issues.append(f"{phase} project-state={phase_state} 与 registry={session_state} 不一致")
+        accepted_under = result.get("accepted_under_schema", state.get("schema_version", "1.0"))
+        legacy_accepted_result = phase_state == "ACCEPTED" and not schema_at_least(accepted_under, 1, 1) and result_state == "SUBMITTED"
+        if phase_state in {"SUBMITTED", "REVISION_REQUIRED", "ACCEPTED"} and result_state != phase_state and not legacy_accepted_result:
+            issues.append(f"{phase} project-state={phase_state} 与 stage-result={result_state} 不一致")
+        if phase_state == "SUBMISSION_AUTHORIZED" and result_state in {"SUBMITTED", "ACCEPTED"}:
+            issues.append(f"{phase} 尚未提交但 stage-result 已是 {result_state}")
+        manifest_path = phase_dir(root, phase) / "deliverables-manifest.json"
+        if manifest_path.is_file(): issues.extend(f"{phase} {item}" for item in manifest_policy_issues(load_json(manifest_path), phase))
+        legacy_accepted = phase_state == "ACCEPTED" and not schema_at_least(accepted_under, 1, 1)
+        if phase_state in {"SUBMITTED", "ACCEPTED"} and stage_requires_authorization(root, phase) and not legacy_accepted:
+            valid, reason = submission_authorization_is_valid(root, phase)
+            if not valid: issues.append(f"{phase} 提交状态缺少有效授权：{reason}")
+    return issues
 
 
 def governance_snapshot(root: Path, phase: str) -> str:
@@ -539,6 +630,15 @@ def resolve_issue(args: argparse.Namespace) -> None:
     path = governance_path(root, args.phase, "stage-issues.json"); data = load_json(path)
     if args.issue_id not in data["items"]: raise SystemExit(f"客观问题不存在：{args.issue_id}")
     item = data["items"][args.issue_id]
+    if item.get("revision_type") == "CONTROL":
+        comparisons: list[dict[str, object]] = []
+        for protected in item.get("protected_content", []):
+            target = root / protected["path"]
+            if not target.is_file(): raise SystemExit(f"控制修订受保护内容不存在：{protected['path']}")
+            after = sha256(target); unchanged = after == protected.get("sha256_before")
+            comparisons.append({**protected, "sha256_after": after, "unchanged": unchanged})
+            if not unchanged: raise SystemExit(f"控制修订改变了受保护内容：{protected['path']}")
+        item["protected_content"] = comparisons
     item.update({"status": "CLOSED", "resolution": args.resolution, "resolution_evidence": args.evidence, "closed_at": now(), "closed_by": args.recorded_by})
     write_json(path, data); sync_issue_summary(root, args.phase); render_open_issues(root, args.phase)
     append_md(governance_path(root, args.phase, "approval-record.md"), f"审阅互动 {now()}", f"- 事件：`OBJECTIVE_ISSUE_CLOSED`\n- 事项：`{args.issue_id}`\n- 处理：`{args.resolution}`\n- 证据：{args.evidence}\n- 处理状态：`CLOSED`")
@@ -560,12 +660,14 @@ def submit(args: argparse.Namespace) -> None:
         if state["phase_status"][args.phase] != "SUBMISSION_AUTHORIZED": raise SystemExit(f"{args.phase} 尚未处于 SUBMISSION_AUTHORIZED，不能提交")
         valid, reason = submission_authorization_is_valid(root, args.phase)
         if not valid: raise SystemExit(f"{args.phase} 是用户互动阶段，不能提交：{reason}")
+    consistency = control_consistency_issues(root)
+    if consistency: raise SystemExit("提交前控制状态一致性检查失败：\n- " + "\n- ".join(consistency))
     result_path = phase_dir(root, args.phase) / "stage-result.json"; result = load_json(result_path)
-    result.update({"status": "SUBMITTED", "summary": args.summary, "submitted_at": now()})
+    stamp = now(); result.update({"status": "SUBMITTED", "summary": args.summary, "submitted_at": stamp})
     if not governance_enabled(root): result["issues"].update({"BLOCKER": args.blocker, "HIGH": args.high})
-    write_json(result_path, result); state["phase_status"][args.phase] = "SUBMITTED"; state["updated_at"] = now()
-    entry["status"] = "SUBMITTED"; entry["last_seen_at"] = now()
-    write_json(state_path, state); write_json(registry_path, registry)
+    state["phase_status"][args.phase] = "SUBMITTED"; state["updated_at"] = stamp
+    entry["status"] = "SUBMITTED"; entry["last_seen_at"] = stamp; registry["updated_at"] = stamp
+    write_json_bundle([(result_path, result), (state_path, state), (registry_path, registry)])
     print(f"{args.phase} 已提交项目经理验收。请通知项目经理；若平台不能跨 Session 通知，请提示用户返回项目经理 Session。")
 
 
@@ -596,14 +698,39 @@ def accept(args: argparse.Namespace) -> None:
 
 def return_phase(args: argparse.Namespace) -> None:
     root = Path(args.root).resolve(); require_phase(args.phase)
+    protected: list[dict[str, str]] = []
+    if args.revision_type == "CONTROL":
+        if not args.protected_artifact: raise SystemExit("CONTROL 修订必须至少提供一个 --protected-artifact 证明内容不变")
+        for value in args.protected_artifact:
+            target = Path(value); target = target if target.is_absolute() else root / target
+            resolved = target.resolve()
+            try: resolved.relative_to(root)
+            except ValueError: raise SystemExit(f"受保护产物越出项目：{value}")
+            if not resolved.is_file(): raise SystemExit(f"受保护产物不存在：{value}")
+            protected.append({"path": str(resolved.relative_to(root)).replace("\\", "/"), "sha256_before": sha256(resolved)})
     state_path, registry_path, _ = root_paths(root); state = load_json(state_path); registry = load_json(registry_path)
-    state["phase_status"][args.phase] = "REVISION_REQUIRED"; state["updated_at"] = now()
+    stamp = now(); state["phase_status"][args.phase] = "REVISION_REQUIRED"; state["updated_at"] = stamp
     entry = next(x for x in registry["stages"] if x["phase"] == args.phase); entry["status"] = "REVISION_REQUIRED"; entry["attempt"] += 1
     if governance_enabled(root):
         issue_args = argparse.Namespace(root=args.root, phase=args.phase, issue_id=args.issue_id or f"PM-RETURN-{datetime.now().strftime('%Y%m%d%H%M%S')}", severity=args.severity, category=args.category, description=args.reason, evidence=[args.reason], recorded_by="项目经理")
         record_issue(issue_args)
+        issue_path = governance_path(root, args.phase, "stage-issues.json"); issue_data = load_json(issue_path)
+        issue = issue_data["items"][issue_args.issue_id]; issue["revision_type"] = args.revision_type
+        if args.revision_type == "CONTROL":
+            issue["protected_content"] = protected
+        write_json(issue_path, issue_data)
     else: append_md(phase_dir(root, args.phase) / "open-issues.md", now(), f"- 等级：{args.severity}\n- 状态：未关闭（`OPEN`）\n- 必须修改：{args.reason}")
-    write_json(state_path, state); write_json(registry_path, registry); print(f"{args.phase} 已退回：{args.reason}")
+    result_path = phase_dir(root, args.phase) / "stage-result.json"; result = load_json(result_path)
+    result["status"] = "REVISION_REQUIRED"; result["revision_type"] = args.revision_type; result["returned_at"] = stamp
+    registry["updated_at"] = stamp
+    write_json_bundle([(result_path, result), (state_path, state), (registry_path, registry)])
+    print(f"{args.phase} 已按 {args.revision_type} 修订退回：{args.reason}")
+
+
+def validate_control_consistency(args: argparse.Namespace) -> None:
+    root = Path(args.root).resolve(); issues = control_consistency_issues(root)
+    if issues: raise SystemExit("控制状态一致性检查失败：\n- " + "\n- ".join(issues))
+    print(f"控制状态一致性检查通过：{root}")
 
 
 def record_approval(args: argparse.Namespace) -> None:
@@ -722,7 +849,7 @@ def parser() -> argparse.ArgumentParser:
         x = sub.add_parser(command); x.add_argument("root"); x.add_argument("phase")
         if command == "submit": x.add_argument("--summary", required=True); x.add_argument("--blocker", type=int, default=0); x.add_argument("--high", type=int, default=0)
         if command == "accept": x.add_argument("--approval-ref")
-        if command == "return": x.add_argument("--severity", choices=["BLOCKER", "HIGH", "MEDIUM", "LOW"], default="HIGH"); x.add_argument("--category", choices=sorted(OBJECTIVE_ISSUE_CATEGORIES), default="TECHNICAL_VALIDATION"); x.add_argument("--issue-id"); x.add_argument("--reason", required=True)
+        if command == "return": x.add_argument("--severity", choices=["BLOCKER", "HIGH", "MEDIUM", "LOW"], default="HIGH"); x.add_argument("--category", choices=sorted(OBJECTIVE_ISSUE_CATEGORIES), default="TECHNICAL_VALIDATION"); x.add_argument("--issue-id"); x.add_argument("--reason", required=True); x.add_argument("--revision-type", choices=["CONTENT", "CONTROL"], default="CONTENT"); x.add_argument("--protected-artifact", action="append")
         x.set_defaults(func=func)
     x = sub.add_parser("register"); x.add_argument("root"); x.add_argument("phase"); x.add_argument("--session-id", required=True); x.add_argument("--platform", default="codex"); x.set_defaults(func=register)
     x = sub.add_parser("set-pm"); x.add_argument("root"); x.add_argument("--session-id", required=True); x.add_argument("--platform", default="codex"); x.set_defaults(func=set_pm)
@@ -735,6 +862,7 @@ def parser() -> argparse.ArgumentParser:
     x = sub.add_parser("record-issue"); x.add_argument("root"); x.add_argument("phase"); x.add_argument("--issue-id", required=True); x.add_argument("--severity", required=True, choices=["BLOCKER", "HIGH", "MEDIUM", "LOW"]); x.add_argument("--category", required=True, choices=sorted(OBJECTIVE_ISSUE_CATEGORIES)); x.add_argument("--description", required=True); x.add_argument("--evidence", action="append"); x.add_argument("--recorded-by", default="阶段 Session"); x.set_defaults(func=record_issue)
     x = sub.add_parser("resolve-issue"); x.add_argument("root"); x.add_argument("phase"); x.add_argument("--issue-id", required=True); x.add_argument("--resolution", required=True, choices=["FIXED", "NOT_APPLICABLE", "CONFIG_CHANGED", "USER_DECISION_RECORDED"]); x.add_argument("--evidence", required=True); x.add_argument("--recorded-by", default="阶段 Session"); x.set_defaults(func=resolve_issue)
     x = sub.add_parser("status"); x.add_argument("root"); x.set_defaults(func=status)
+    x = sub.add_parser("validate-control-consistency"); x.add_argument("root"); x.set_defaults(func=validate_control_consistency)
     return p
 
 

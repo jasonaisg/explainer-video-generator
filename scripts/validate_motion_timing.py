@@ -16,11 +16,14 @@ TOLERANCE = 0.001
 
 def validate(data: dict) -> list[str]:
     issues: list[str] = []
-    if data.get("schema_version") != "1.0":
-        issues.append("schema_version 必须为 1.0")
+    schema = data.get("schema_version")
+    if schema not in {"1.0", "1.1"}:
+        issues.append("schema_version 必须为 1.0 或 1.1")
     for key in ("timeline_ref", "candidate_matrix_ref"):
         if not str(data.get(key, "")).strip():
             issues.append(f"缺少 {key}")
+    if schema == "1.1" and not str(data.get("scene_package_index_ref", "")).strip():
+        issues.append("schema 1.1 缺少 scene_package_index_ref")
     scenes = data.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         return issues + ["scenes 必须是非空数组"]
@@ -34,6 +37,8 @@ def validate(data: dict) -> list[str]:
         candidate_ids = scene.get("candidate_ids")
         if not isinstance(candidate_ids, list) or not candidate_ids or not all(isinstance(x, str) and x.strip() for x in candidate_ids):
             issues.append(f"{scene_id} candidate_ids 必须是非空字符串数组")
+        if schema == "1.1" and not str(scene.get("scene_script_ref", "")).strip():
+            issues.append(f"{scene_id} 缺少独立 scene_script_ref")
         start = scene.get("start_seconds"); end = scene.get("end_seconds")
         trigger = scene.get("trigger_time_seconds"); complete = scene.get("semantic_complete_time_seconds")
         available = scene.get("available_duration_seconds")
